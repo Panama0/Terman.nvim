@@ -6,13 +6,34 @@ Simple terminal session management
 - Preset or arbitrary terminal jobs
 - Customisable with user defined functions to run before/after a job
 - Floating or split pane
+- Compatible with linux, maybe macOS and definitely not windows
 
 ## Usage
-The command ':Terman' will run the preset or terminal command you pass in, prefering to run presets if there is a name clash.
+The command `:Terman` will run the preset or terminal command you pass in, preferring to run presets if there is a name clash.
 You can also call `open()` and pass in an existing or new preset.
-Presets can be searched with `get_session_preset` by passing in the name of the session (or cmd if no name was provided).
+Presets can be searched with `get_session_preset()` by passing in the name of the session (or cmd if no name was provided).
+
+It is recommended to bind your presets to `:Terman YourPreset` 
 
 When in a terminal, `<esc><esc>` will hide the window.
+
+
+## Installation
+Lazy.nvim:
+```lua
+{
+  'Panama0/Terman.nvim',
+  opts = {}
+}
+```
+
+Vim.pack (0.12)
+```lua
+vim.pack.add({
+  "https://github.com/Panama0/Terman.nvim"
+})
+
+```
 
 ## Config
 Below is the default config:
@@ -42,7 +63,7 @@ Add as many presets as you like using the below fields:
 
 ---@class terman.Preset
 ---@field name string?: Name that can be used to retrieve the session
----@field cmd string: Command to run
+---@field cmd string?: Command to run
 ---@field on_exit function?: Function to run on command exit
 ---@field pre_open function?: Function to run once upon session creation
 ---@field pos? 'floating' | 'top' | 'bottom': Window position, default floating
@@ -104,4 +125,18 @@ config = function()
 
   require('terman').setup(opts)
 end
+```
+
+## Lazy Loading
+It is recommended to lazy load using keys if using lazy.nvim
+```lua
+{
+  'Panama0/Terman.nvim',
+  keys = {
+    { '<leader>ot', '<cmd>Terman Terminal<CR>', desc = '[o]pen [t]erminal' },
+    { '<leader>og', '<cmd>Terman Lazygit<CR>', desc = '[o]pen lazy[g]it' },
+    { '<leader>oy', '<cmd>Terman Yazi<CR>', desc = '[o]pen [y]azi' },
+  },
+  opts = {},
+}
 ```

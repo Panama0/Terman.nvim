@@ -7,7 +7,7 @@ local M = {}
 
 ---@class terman.Preset
 ---@field name string?: Name that can be used to retrieve the session
----@field cmd string: Command to run
+---@field cmd string?: Command to run
 ---@field on_exit function?: Function to run on command exit
 ---@field pre_open function?: Function to run once upon session creation
 ---@field pos? 'floating' | 'top' | 'bottom': Window position, default floating
