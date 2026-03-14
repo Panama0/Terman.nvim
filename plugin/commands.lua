@@ -12,6 +12,3 @@ end, {
 	nargs = "?", -- 0 or 1 args only
 	complete = "shellcmd", -- optional: shell command completion
 })
-
--- need user command that you can call like :Term fish and it will search the presets for corresponding name
--- if that doesnt exist, then we make a new session with that as the command

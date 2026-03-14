@@ -12,7 +12,7 @@ The command ':Terman' will run the preset or terminal command you pass in, prefe
 You can also call `open()` and pass in an existing or new preset.
 Presets can be searched with `get_session_preset` by passing in the name of the session (or cmd if no name was provided).
 
-When in a terminal, '<esc><esc>' will hide the window.
+When in a terminal, `<esc><esc>` will hide the window.
 
 ## Config
 Below is the default config:
@@ -22,7 +22,6 @@ local config = {
 	presets = {
 		{
 			name = "Terminal",
-			cmd = "fish",
 		},
 	},
 	window_options = {
@@ -47,6 +46,7 @@ Add as many presets as you like using the below fields:
 ---@field on_exit function?: Function to run on command exit
 ---@field pre_open function?: Function to run once upon session creation
 ---@field pos? 'floating' | 'top' | 'bottom': Window position, default floating
+---@field persist? boolean: if true, terminal will stay open after job completion
 
 ---@class terman.Config
 ---@field presets terman.Preset[]

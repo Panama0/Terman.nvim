@@ -11,6 +11,7 @@ local M = {}
 ---@field on_exit function?: Function to run on command exit
 ---@field pre_open function?: Function to run once upon session creation
 ---@field pos? 'floating' | 'top' | 'bottom': Window position, default floating
+---@field persist? boolean: if true, terminal will stay open after job completion
 
 ---@class terman.Config
 ---@field presets terman.Preset[]
@@ -26,7 +27,6 @@ local config = {
 	presets = {
 		{
 			name = "Terminal",
-			cmd = "fish",
 		},
 	},
 	window_options = {
@@ -157,8 +157,22 @@ M.open = function(session)
 		session.pre_open()
 	end
 
+	-- setup command, start a second shell session if persisting
+	local cmd
+	local shell = os.getenv("SHELL") or "sh"
+
+	if session.cmd then
+		if session.persist then
+			cmd = { shell, "-c", session.cmd .. "; exec " .. shell }
+		else
+			cmd = session.cmd
+		end
+	else
+		cmd = shell
+	end
+
 	-- set up buffer
-	vim.fn.jobstart(session.cmd or os.getenv("SHELL"), {
+	vim.fn.jobstart(cmd, {
 		term = true,
 		on_exit = function(_, code, _)
 			if vim.api.nvim_win_is_valid(saved_session.win) then
