@@ -9,7 +9,9 @@ Simple terminal session management
 - Compatible with linux, maybe macOS and definitely not windows
 
 ## Usage
-The command `:Terman` will run the preset or terminal command you pass in, preferring to run presets if there is a name clash.
+- `:Terman` will run the preset or terminal command you pass in, preferring to run presets if there is a name clash.
+- `:TermanRun` will allow you to run any command and view its output in a persistent window.
+
 You can also call `open()` and pass in an existing or new preset.
 Presets can be searched with `get_session_preset()` by passing in the name of the session (or cmd if no name was provided).
 

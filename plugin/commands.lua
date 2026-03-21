@@ -5,9 +5,16 @@ vim.api.nvim_create_user_command("Terman", function(opts)
 
 	if session then
 		require("terman").open(session)
-	else
-		require("terman").open({ cmd = args })
 	end
+end, {
+	nargs = "?", -- 0 or 1 args only
+	complete = "shellcmd", -- optional: shell command completion
+})
+
+vim.api.nvim_create_user_command("TermanRun", function(opts)
+	local args = opts.args ~= "" and opts.args or nil
+
+	require("terman").open({ cmd = args, persist = true })
 end, {
 	nargs = "?", -- 0 or 1 args only
 	complete = "shellcmd", -- optional: shell command completion
