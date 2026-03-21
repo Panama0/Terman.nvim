@@ -49,6 +49,8 @@ local config = {
 		floating_width = 0.8,
 		floating_height = 0.8,
 		split_height = 0.2,
+		navigate_up = "<C-k>",
+		navigate_down = "<C-j>",
 	},
 }
 ```
@@ -57,17 +59,19 @@ Add as many presets as you like using the below fields:
 
 ```lua
 ---@class terman.WindowOptions
----@field floating_width number: Width of floating windows
----@field floating_height number: Height of floating windows
----@field split_height number: Height of split windows
+---@field floating_width number Width of floating windows
+---@field floating_height number Height of floating windows
+---@field split_height number Height of split windows
+---@field navigate_up string Keybind to navigate up from terman windows (terminal mode)
+---@field navigate_down string Keybind to navigate down from terman windows (terminal mode)
 
 ---@class terman.Preset
----@field name string?: Name that can be used to retrieve the session
----@field cmd string?: Command to run
----@field on_exit function?: Function to run on command exit
----@field pre_open function?: Function to run once upon session creation
----@field pos? 'floating' | 'top' | 'bottom': Window position, default floating
----@field persist? boolean: if true, terminal will stay open after job completion
+---@field name string? Name that can be used to retrieve the session
+---@field cmd string? Command to run
+---@field on_exit function? Function to run on command exit, exit code is passed in
+---@field pre_open function? Function to run once upon session creation
+---@field pos? 'floating' | 'top' | 'bottom' Window position, default floating
+---@field persist? boolean if true, terminal will stay open after job completion
 
 ---@class terman.Config
 ---@field presets terman.Preset[]
@@ -106,15 +110,6 @@ config = function()
   local opts = {
     presets = {
       {
-        name = 'Terminal',
-        cmd = 'fish',
-        pos = 'bottom',
-      },
-      {
-        name = 'Lazygit',
-        cmd = 'lazygit',
-      },
-      {
         name = 'Yazi',
         cmd = 'yazi --chooser-file ~/.local/share/nvim/yazi/chooser-file.txt',
         pre_open = setup_yazi,
@@ -133,8 +128,6 @@ It is recommended to lazy load using keys if using lazy.nvim
 {
   'Panama0/Terman.nvim',
   keys = {
-    { '<leader>ot', '<cmd>Terman Terminal<CR>', desc = '[o]pen [t]erminal' },
-    { '<leader>og', '<cmd>Terman Lazygit<CR>', desc = '[o]pen lazy[g]it' },
     { '<leader>oy', '<cmd>Terman Yazi<CR>', desc = '[o]pen [y]azi' },
   },
   opts = {},
