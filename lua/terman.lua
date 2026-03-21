@@ -1,26 +1,23 @@
 local M = {}
 
 ---@class terman.WindowOptions
----@field floating_width number: Width of floating windows
----@field floating_height number: Height of floating windows
----@field split_height number: Height of split windows
+---@field floating_width number Width of floating windows
+---@field floating_height number Height of floating windows
+---@field split_height number Height of split windows
+---@field navigate_up string Keybind to navigate up from terman windows (terminal mode)
+---@field navigate_down string Keybind to navigate down from terman windows (terminal mode)
 
 ---@class terman.Preset
----@field name string?: Name that can be used to retrieve the session
----@field cmd string?: Command to run
----@field on_exit function?: Function to run on command exit
----@field pre_open function?: Function to run once upon session creation
----@field pos? 'floating' | 'top' | 'bottom': Window position, default floating
----@field persist? boolean: if true, terminal will stay open after job completion
+---@field name string? Name that can be used to retrieve the session
+---@field cmd string? Command to run
+---@field on_exit function? Function to run on command exit, exit code is passed in
+---@field pre_open function? Function to run once upon session creation
+---@field pos? 'floating' | 'top' | 'bottom' Window position, default floating
+---@field persist? boolean if true, terminal will stay open after job completion
 
 ---@class terman.Config
 ---@field presets terman.Preset[]
 ---@field window_options terman.WindowOptions
-
----@class ActiveState
----@field win number: Nvim window id
----@field buf number: Nvim buffer id
----@field name string: Terman identifier, preset name or cmd
 
 ---@type terman.Config
 local config = {
@@ -33,15 +30,24 @@ local config = {
 		floating_width = 0.8,
 		floating_height = 0.8,
 		split_height = 0.2,
+		navigate_up = "<C-k>",
+		navigate_down = "<C-j>",
 	},
 }
 
+---@class terman.ActiveState
+---@field win number Nvim window id
+---@field buf number Nvim buffer id
+---@field name string Terman identifier, preset name or cmd
+---@field dead boolean? Whether the buffer is dead
+
 -- active windows and buffers
+---@type table<string, terman.ActiveState>
 local active_state = {}
 
----@param buf number: Nvim buffer to bind to
----@param name string: Name from preset
----@param pos? "floating" | "top" | "bottom": Position for terminal window, default to floating
+---@param buf number Nvim buffer to bind to
+---@param name string Name from preset
+---@param pos? "floating" | "top" | "bottom" Position for terminal window, default to floating
 local function create_window(buf, name, pos)
 	pos = pos or "floating"
 
@@ -94,6 +100,16 @@ M.ls = function()
 	vim.print(active_state)
 end
 
+---@param session terman.ActiveState
+local function kill_session(session)
+	if vim.api.nvim_win_is_valid(session.win) then
+		vim.api.nvim_win_close(session.win, true)
+	end
+
+	vim.api.nvim_buf_delete(session.buf, { force = true })
+	active_state[session.name] = nil
+end
+
 -- Hide current session
 M.hide = function()
 	local current_buf = vim.api.nvim_get_current_buf()
@@ -107,7 +123,11 @@ M.hide = function()
 	for _, session in pairs(active_state) do
 		if session.buf == current_buf and vim.api.nvim_win_is_valid(session.win) then
 			vim.api.nvim_win_hide(session.win)
-			return
+
+			if session.dead then
+				kill_session(session)
+				return
+			end
 		end
 	end
 
@@ -135,6 +155,12 @@ M.open = function(session)
 	-- restore last session
 	if saved_session then
 		if vim.api.nvim_buf_is_valid(saved_session.buf) then
+			-- if the window is open, we can just focus it
+			if vim.api.nvim_win_is_valid(saved_session.win) then
+				vim.api.nvim_set_current_win(saved_session.win)
+				return
+			end
+
 			saved_session.win = create_window(saved_session.buf, key, session.pos)
 			vim.cmd("startinsert")
 			return
@@ -152,47 +178,72 @@ M.open = function(session)
 
 	active_state[key] = saved_session
 
-	-- pre open if needed
+	-- pre open if specified
 	if session.pre_open then
 		session.pre_open()
 	end
 
 	-- setup command, start a second shell session if persisting
-	local cmd
 	local shell = os.getenv("SHELL") or "sh"
-
-	if session.cmd then
-		if session.persist then
-			cmd = { shell, "-c", session.cmd .. "; exec " .. shell }
-		else
-			cmd = session.cmd
-		end
-	else
-		cmd = shell
-	end
-
+	local cmd = session.cmd or shell
 	-- set up buffer
-	vim.fn.jobstart(cmd, {
-		term = true,
-		on_exit = function(_, code, _)
-			if vim.api.nvim_win_is_valid(saved_session.win) then
-				vim.api.nvim_win_close(saved_session.win, true)
-			end
+	vim.api.nvim_buf_call(b, function()
+		vim.fn.jobstart(cmd, {
+			term = true,
+			on_exit = function(_, code, _)
+				if session.on_exit then
+					session.on_exit(code)
+					-- need to make it so that we can hide here and have it close the buffer
+				else
+					print("Terminal exited with code " .. code)
+				end
 
-			vim.api.nvim_buf_delete(saved_session.buf, { force = true })
+				if not session.persist then
+					kill_session(saved_session)
+					return
+				end
 
-			if session.on_exit then
-				session.on_exit()
-			else
-				print("Terminal exited with code " .. code)
-			end
-			-- remove the session
-			active_state[saved_session.name] = nil
+				-- have to check beacuse hide() could have been called in on_exit
+				if vim.api.nvim_win_is_valid(saved_session.win) then
+					local ns = vim.api.nvim_create_namespace("my_namespace")
+
+					local text = "Job ended - View only"
+					local width = vim.api.nvim_win_get_width(saved_session.win)
+					local padding = math.floor((width - #text) / 2)
+					local padded = string.rep(" ", padding) .. text
+
+					vim.api.nvim_buf_set_extmark(saved_session.buf, ns, 0, 0, {
+						virt_text = { { padded, "Error" } },
+						virt_text_pos = "overlay",
+					})
+				end
+
+				-- force insert mode
+				vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<C-\\><C-n>", true, false, true), "n", false)
+				-- disable terminal mode
+				vim.keymap.set("n", "i", "<nop>", { buffer = saved_session.buf })
+
+				-- it will be killed when we hide the buffer
+				saved_session.dead = true
+			end,
+		})
+	end)
+
+	vim.api.nvim_create_autocmd("BufEnter", {
+		desc = "Enter insert mode in Terman buffers",
+		group = vim.api.nvim_create_augroup("Terman-insert", { clear = true }),
+		buffer = saved_session.buf,
+		callback = function()
+			vim.cmd("startinsert")
 		end,
 	})
 
 	-- add a keybind just for this buffer to hide the terminal
-	vim.keymap.set("t", "<esc><esc>", M.hide, { buffer = saved_session.buf })
+	vim.keymap.set({ "t", "n" }, "<esc><esc>", M.hide, { buffer = saved_session.buf })
+	-- other keybinds
+	vim.keymap.set("t", config.window_options.navigate_up, "<C-\\><C-n><C-w>k", { buffer = saved_session.buf })
+	vim.keymap.set("t", config.window_options.navigate_down, "<C-\\><C-n><C-w>j", { buffer = saved_session.buf })
+
 	vim.cmd("startinsert")
 end
 
