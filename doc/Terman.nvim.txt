@@ -1,4 +1,4 @@
-*Terman.nvim.txt*          For NVIM v0.8.0          Last change: 2026 March 21
+*Terman.nvim.txt*          For NVIM v0.8.0          Last change: 2026 April 03
 
 ==============================================================================
 Table of Contents                              *Terman.nvim-table-of-contents*
