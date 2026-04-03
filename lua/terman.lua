@@ -97,7 +97,7 @@ end
 
 --TODO: in future, this should have some kind of gui element where we can kill sessions
 M.ls = function()
-	vim.print(active_state)
+	vim.notify(vim.inspect(active_state), "info", { title = "Terman" })
 end
 
 ---@param session terman.ActiveState
@@ -109,6 +109,9 @@ local function kill_session(session)
 	vim.api.nvim_buf_delete(session.buf, { force = true })
 	active_state[session.name] = nil
 end
+
+--FIX: if the window is the last one, we cant hide!
+-- in this case we will have to open a new window first, then hide
 
 -- Hide current session
 M.hide = function()
@@ -128,10 +131,12 @@ M.hide = function()
 				kill_session(session)
 				return
 			end
+
+			return
 		end
 	end
 
-	print("Not in a buffer managed by Terman...")
+	vim.notify("Not in a buffer managed by Terman...", "error", { title = "Terman" })
 end
 
 -- Finds session preset with key, returns false if no session exists
@@ -142,6 +147,8 @@ M.get_session_preset = function(key)
 			return p
 		end
 	end
+	vim.notify("No preset found for: " .. key, "error", { title = "Terman" })
+	return false
 end
 
 -- Opens or creates a session.
@@ -168,6 +175,8 @@ M.open = function(session)
 		-- if the buf is dead, it will be recreated below
 	end
 
+	local source_window = vim.api.nvim_get_current_win()
+
 	local b = vim.api.nvim_create_buf(false, true)
 	local w = create_window(b, key, session.pos)
 	saved_session = {
@@ -188,45 +197,36 @@ M.open = function(session)
 	local cmd = session.cmd or shell
 	-- set up buffer
 	vim.api.nvim_buf_call(b, function()
-		vim.fn.jobstart(cmd, {
+		local job_id = vim.fn.jobstart(cmd, {
 			term = true,
 			on_exit = function(_, code, _)
-				if session.on_exit then
-					session.on_exit(code)
-					-- need to make it so that we can hide here and have it close the buffer
-				else
-					print("Terminal exited with code " .. code)
-				end
+				vim.schedule(function()
+					if not session.persist then
+						kill_session(saved_session)
+						if session.on_exit then
+							session.on_exit(code)
+						else
+							vim.notify("Terminal exited with code " .. code, "info", { title = "Terman" })
+						end
 
-				if not session.persist then
-					kill_session(saved_session)
-					return
-				end
+						return
+					end
 
-				-- have to check beacuse hide() could have been called in on_exit
-				if vim.api.nvim_win_is_valid(saved_session.win) then
-					local ns = vim.api.nvim_create_namespace("my_namespace")
+					-- force insert mode
+					vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<C-\\><C-n>", true, false, true), "n", false)
+					-- disable terminal mode
+					vim.keymap.set("n", "i", "<nop>", { buffer = saved_session.buf })
 
-					local text = "Job ended - View only"
-					local width = vim.api.nvim_win_get_width(saved_session.win)
-					local padding = math.floor((width - #text) / 2)
-					local padded = string.rep(" ", padding) .. text
-
-					vim.api.nvim_buf_set_extmark(saved_session.buf, ns, 0, 0, {
-						virt_text = { { padded, "Error" } },
-						virt_text_pos = "overlay",
-					})
-				end
-
-				-- force insert mode
-				vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<C-\\><C-n>", true, false, true), "n", false)
-				-- disable terminal mode
-				vim.keymap.set("n", "i", "<nop>", { buffer = saved_session.buf })
-
-				-- it will be killed when we hide the buffer
-				saved_session.dead = true
+					-- it will be killed when we hide the buffer
+					saved_session.dead = true
+				end)
 			end,
 		})
+		if job_id == 0 then
+			vim.notify("Failed to start terminal: " .. cmd, "error", { title = "Terman" })
+			kill_session(saved_session)
+			return
+		end
 	end)
 
 	vim.api.nvim_create_autocmd("BufEnter", {
