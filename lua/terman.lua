@@ -103,15 +103,13 @@ end
 ---@param session terman.ActiveState
 local function kill_session(session)
 	if vim.api.nvim_win_is_valid(session.win) then
-		vim.api.nvim_win_close(session.win, true)
+		--FIX:
+		vim.api.nvim_win_close(session.win, false)
 	end
 
 	vim.api.nvim_buf_delete(session.buf, { force = true })
 	active_state[session.name] = nil
 end
-
---FIX: if the window is the last one, we cant hide!
--- in this case we will have to open a new window first, then hide
 
 -- Hide current session
 M.hide = function()
@@ -125,6 +123,7 @@ M.hide = function()
 	-- Find the session it belongs to
 	for _, session in pairs(active_state) do
 		if session.buf == current_buf and vim.api.nvim_win_is_valid(session.win) then
+			--FIX:
 			vim.api.nvim_win_hide(session.win)
 
 			if session.dead then
@@ -137,6 +136,10 @@ M.hide = function()
 	end
 
 	vim.notify("Not in a buffer managed by Terman...", "error", { title = "Terman" })
+end
+
+function M.session_active(name)
+	return active_state[name] ~= nil and not active_state[name].dead
 end
 
 -- Finds session preset with key, returns false if no session exists
